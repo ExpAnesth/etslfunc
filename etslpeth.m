@@ -145,10 +145,9 @@ else
   badIx=refEtsl(:,1)+interval(1)<0.0 | refEtsl(:,1)+intvEnd>eob(end);
   goodIx=find(~badIx);
   % time interval in which spx are counted for computation of fraction of
-  % spx in bursts: from beginning of first non-bad burst to last burst (no
-  % matter whether it is 'bad' or not)
+  % spx in bursts: from beginning of first to end of last non-bad burst
   if ~isempty(goodIx)
-    tmpIntv=refEtsl([goodIx(1) end],etslc.tsCol);
+    tmpIntv=[refEtsl(goodIx(1),etslc.tsCol) sum(refEtsl(goodIx(end),[etslc.tsCol etslc.durCol]))];
   else
     tmpIntv=[nan nan];
   end

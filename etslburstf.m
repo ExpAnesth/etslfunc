@@ -39,9 +39,14 @@ function [etsl,atsl,silentEtsl,varargout]=etslburstf(tsl,maxIEI,varargin)
 % maxSilentPerNEv scalar, NaN      maximal number of events allowed in
 %                                  pre-burst silent period
 % minNEvPerBurst  scalar, NaN      minimal number of events a burst must
-%                                  consist of ** watch out, if set to 1
+%                                  consist of - watch out, if set to 1
 %                                  single events will be considered bursts!
-%                                  **
+% startTs         char, 'ev'      'ev': burst start is set to first event
+%                                  in bursts 
+%                                  'iei': burst start is set to center of
+%                                  initial inter-event-interval of bursts
+%                                  (except when bursts may consist of just
+%                                  one event)
 % recLen          scalar, NaN      length of recording (ms)
 %
 %                    <<< OUTPUT VARIABLES <<<
@@ -85,6 +90,7 @@ maxIEI_init=maxIEI;
 minSilentPerDur=nan;
 maxSilentPerNEv=NaN;
 minNEvPerBurst=NaN;
+startTs='ev';
 recLen=NaN;
 pvpmod(varargin);
 
@@ -95,7 +101,7 @@ if isempty(tsl)
 end
 
 if isfinite(maxIEI)
-  if maxIEI<=0.0,
+  if maxIEI<=0.0
     error('maxIEI must be strictly positive');
   end
 else
@@ -103,7 +109,7 @@ else
 end
 
 if isfinite(maxIEI_init)
-  if maxIEI_init<=0.0,
+  if maxIEI_init<=0.0
     error('maxIEI_init must be strictly positive');
   end
   if maxIEI<maxIEI_init
@@ -125,9 +131,13 @@ elseif minNEvPerBurst==1
   % this is a somewhat funny request, so issue a warning
   warning([mfilename ':singleEvBu'],'considering single events as bursts');
 end
+if ~ismember(startTs,{'ev','iei'})
+  error('startTs must be either of ''ev'' or ''iei''')
+end
+  
 % last check:
 if isfinite(recLen) 
-  if recLen<tsl(end),
+  if recLen<tsl(end)
     error('''recLen'' is less than the last time stamp');
   end
 else
@@ -212,9 +222,15 @@ else
   % ----- find events belonging to bursts
   % initialize both tsls with three columns: the third column holds the
   % number of events per burst, which is possibly an exclusion criterion
-  etsl=repmat(nan,nBuInit,3);
+  etsl=nan(nBuInit,3);
   for i=1:nBuInit
-    etsl(i,etslc.tsCol)=tsl(buInitIdx(i));
+    if minNEvPerBurst>1 && strcmpi(startTs,'iei')
+      % set beginning of burst to center of first inter-event-interval
+      etsl(i,etslc.tsCol)=sum(tsl(buInitIdx(i)+[0 1]))/2;
+    else
+      % set beginning of burst to first spike in burst
+      etsl(i,etslc.tsCol)=tsl(buInitIdx(i));
+    end
     % running variable for loop
     g=0;
     % duration is defined as the time span between beginnings of

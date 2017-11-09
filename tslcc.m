@@ -38,6 +38,14 @@ function [h,binArr,lag,cbi]=tslcc(xtsl,ytsl,varargin)
 %                                      where central bin is mostly not wanted
 % mr            scalar, 0            determines whether mean of all bins shall be
 %                                    removed; 0=no, 1=yes; useful for computation of spectra
+% maxArrBytes   scalar, 1e9          max size of largest temporary matrix 
+%                                    tslcc.m will set up for internal
+%                                    computations in bytes; set maximally
+%                                    to somewhat less than the RAM
+%                                    available to Matlab (GPU RAM in case
+%                                    doComputeGP==true!)
+% doGPUCompute  logical, true       if true, computations will run on GPU
+%                                   (may be faster)
 %
 %                    <<< OUTPUT VARIABLES <<<
 %
@@ -59,16 +67,19 @@ function [h,binArr,lag,cbi]=tslcc(xtsl,ytsl,varargin)
 % changes Feb 2015:
 % - now computing xtls-ytls
 % - numerous rearrangements of code and bug fixes
+% changes Nov 2017:
+% - replaced Histc by histcounts
+% - computation of difference matrix via automatic expansion of arrays
+% - implemented possibility to compute on GPU
 
 % defaults
 lag=199.5;
 binw=1;
-verbose=0;
 cb='leave';
 norm='none';
 mr=0;
-verbose=1;
-
+doGPUCompute=true;
+maxArrBytes=1e9;
 % modify according to input
 pvpmod(varargin);
 
@@ -100,7 +111,7 @@ else
   maxlag=stopT-startT;
   
   % cut down lag if reasonable
-  if lag>maxlag,
+  if lag>maxlag
     lag=floor((maxlag-.5*binw)/binw)*binw+1.5*binw;
     lagBinBorders=[-.5*binw:binw:lag];
     nMaxLagBins=length(lagBinBorders);
@@ -112,7 +123,7 @@ else
     lagBinBorders=[-.5*binw:binw:lag+.5*binw];
   end
   
-  if auto,
+  if auto
     binArr=lagBinBorders';
     cbi=length(binArr)-1;
   else
@@ -131,40 +142,42 @@ else
     error('computation of bins & lags messed up');
   end
   % initialize histogram container
-  h=zeros(size(binArr));
+  h=zeros(numel(binArr)-1,1);
   
-  % if two matrices of size ny by nx are too large §§ for 2 GB (the assumed
-  % memory accessible to Matlab) divide xtsl into chunks
-  xilen=min(nx,round(2e9/(2*ny*8)));
-  [intrvls,intrvls_pts]=mkintrvls([0 nx],'ilen',xilen,'olap',0,'border','include');
-  if size(intrvls,1)>1,
-    if verbose
-      disp(['dividing calculation of difference matrix in ' int2str(size(intrvls,1)) ' chunks']);
-    end
+  if doGPUCompute
+    xtsl=gpuArray(xtsl);
+    ytsl=gpuArray(ytsl);
+    binArr=gpuArray(binArr);
   end
+  
+  % if two double matrices of size ny by nx are too large for the assumed
+  % memory accessible to Matlab divide xtsl into chunks
+  xilen=min(nx,round(maxArrBytes/(2*ny*8)));
+  [intrvls,intrvls_pts]=mkintrvls([0 nx],'ilen',xilen,'olap',0,'border','include');
+  if size(intrvls,1)>1
+    disp(['dividing calculation of difference matrix in ' int2str(size(intrvls,1)) ' chunks']);
+  end
+  
   for ccnt=1:size(intrvls_pts,1)
     xidx=intrvls_pts(ccnt,1):intrvls_pts(ccnt,2);
     subnx=length(xidx);
-    tmp1=repmat(xtsl(xidx)',ny,1);
-    tmp2=repmat(ytsl,1,subnx);
-    % a matrix sized ny * nx holding all differences xtsl-ytsl
-    tmp2=tmp1-tmp2;
+    % a matrix sized ny * nx holding all differences xtsl-ytsl (** note new
+    % R2016x automatic expansion arithmetic!)
+    tsDiff=xtsl(xidx)'-ytsl;
     % all values ytsl-xtsl not within interval won't appear in the
-    % histograms because hist ignores values outside the specified bins
-    % (in the rare cases of xtsl and ytsl each containing just one ts
-    % histc will spit out a row vector, so we have to prevent a dimension
-    % mismatch by multiple transpose ops)
-    tmp2=histc(tmp2(:)',binArr);
-    h=h+tmp2';
+    % histograms because histcounts ignores values outside the specified
+    % bins 
+    curH=histcounts(tsDiff(:),binArr);
+    h=h+curH';
   end
-  
-  % kill last bin in both h and binArr
-  h(end)=[];
+    
+  % get rid of last bin
   binArr(end)=[];
+  
   % shift bins to the right by binw/2 so binArr represents the center of intervals
   binArr=binArr+.5*binw;
   
-  if auto,
+  if auto
     binArr=[-1.0*flipud(binArr(2:end)); binArr];
     h=[flipud(h(2:end)); h];
   end
@@ -194,7 +207,7 @@ else
   end
   
   if isempty(normFac)
-  elseif length(normFac)==1,
+  elseif length(normFac)==1
     h=h/normFac;
   else
     h=h./normFac;
@@ -216,9 +229,12 @@ else
     h=h-mean(h([1:cbi-1 cbi+1:end]));
   end
   
-  % finally, pad with zeros if necessary
+  % pad with zeros if necessary
   if length(h)<nFinalBins
     binArr=finalBinArr;
     h=[zeros(finalCbi-cbi,1); h; zeros(finalCbi-cbi,1)];
   end
+  
+  h=gather(h);
+  binArr=gather(binArr);
 end

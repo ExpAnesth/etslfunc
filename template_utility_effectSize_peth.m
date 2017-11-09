@@ -1,16 +1,18 @@
-% this is a (real-life) example of the input structure needed for running
-% utility_effectSize_peth
+compName=lower(getenv('computername'));
+switch compName
+  case {'hh-i7'}
+    % directory in which data reside
+    ds.dDir='d:\_data\otc_ctx\ACh\Diazepam\Blocker_Dia\periev_figs\';
+  case {'hh64','hh-i5'}
+    % directory in which data reside
+    ds.dDir='e:\_data\otc_ctx\ACh\Diazepam\Blocker_Dia\periev_figs\';
+  otherwise
+    error('machine not defined');
+end
 
 % mat file name (without extension) containing PETH data
-% - perievdeal example
 ds.dFn='perievdeal_Blocker_Dia';
-% % - tslbatch example
-% ds.dFn='Blocker_Dia';
-% directory in which data reside:
-% - perievdeal example
-ds.dDir='e:\_data\otc_ctx\ACh\Diazepam\Blocker_Dia\periev_figs\'; 
-% % - tslbatch example
-% ds.dDir='e:\_data\otc_ctx\ACh\Diazepam\Blocker_Dia\Figs\';
+
 % *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 % NOTE: for a comparison of two different data sets, it is possible to
 % specify two different files and directories. In this case, the file

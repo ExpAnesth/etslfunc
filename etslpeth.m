@@ -44,11 +44,15 @@ function [peth,bin,varargout]=etslpeth(refEtsl,tsl,varargin)
 % varargout{1}    1d array        bin widths
 % varargout{2}    struct          a struct containing additional parameters
 %                                  that may be of interest: 
-%                                  - fractionEvInBurst, the fraction of spx
-%                                    in bursts as defined in etsl
-%                                  - evRateInBurst, average spx rate (Hz) 
-%                                    within bursts
-
+%                                  .fractionEvInBurst, the fraction of spx
+%                                   in bursts as defined in etsl
+%                                  .evRateInBurst, average spx rate (Hz) 
+%                                   within bursts
+%                                  .evInBurstRate, number of spx within
+%                                   bursts divided by time spent in bursts
+%                                   (Hz)
+%                                  .peakEvRate, number of spx within bursts 
+%                                   divided by time spent in bursts
 
 
 % defaults
@@ -187,10 +191,17 @@ else
     % - fraction of spx in bursts:
     pethPar.fractionEvInBurst=nansum(refEtsl(:,etslc.amplCol))/...
     numel(find(tsl(:,1)>=tmpIntv(1) & tsl(:,1)<tmpIntv(end)));
-    % - spx rate (Hz) within bursts: compute for each burst individually,
-    % then average
-    pethPar.evRateInBurst=nanmean(refEtsl(:,etslc.amplCol)./...
-      refEtsl(:,etslc.durCol))*1000;
+    % - average spx rate (Hz) within bursts: compute for each burst
+    % individually, then average
+    pethPar.evRateInBurst=...
+      nanmean(refEtsl(:,etslc.amplCol)./refEtsl(:,etslc.durCol))*1000;
+    % additionally/alternatively, the number of spx in bursts divided by
+    % the time spent in bursts
+    pethPar.evInBurstRate=...
+    (sum(refEtsl(:,etslc.amplCol),'omitnan')/sum(refEtsl(:,etslc.durCol),'omitnan'))*1000;
+    % peak firing rate, determined for each burst separately and then
+    % averaged
+    pethPar.peakEvRate=mean(max(peth),'omitnan');
     varargout{2}=pethPar;
   end
 end

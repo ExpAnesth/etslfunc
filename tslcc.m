@@ -78,7 +78,7 @@ binw=1;
 cb='leave';
 norm='none';
 mr=0;
-doGPUCompute=true;
+doGPUCompute=false;
 maxArrBytes=1e9;
 % modify according to input
 pvpmod(varargin);

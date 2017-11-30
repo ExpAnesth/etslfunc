@@ -24,6 +24,9 @@ function adr=etslAnomalyDetection(d,transIA,transAI,varargin)
 % **********************************************************************
 %             - work in progress - 
 
+% to do:
+% rational choice of b
+
 % ------ defaults
 
 funHandle={@mean,@std};
@@ -47,10 +50,12 @@ if n2>1 || n3>1
 end
 
 % reject too short lists 
-if numel(transIA)<4 || numel(transAI)<4
-  warning('too few events - not running anomaly detection')
-  % we can return here because all output args are also required input args
-  return
+if numel(transIA)<2 || numel(transAI)<2
+  warning('too few events - quantifying events but not running anomaly detection')
+  adr.isAnomTransIA=false(size(transIA));
+  adr.isAnomTransAI=false(size(transAI));
+  % adr.funVal=nan;
+  detMethod='none';
 end
 
 if strcmp(detMethod,'explicit')
@@ -60,9 +65,6 @@ if strcmp(detMethod,'explicit')
 end
 
 % ------ THE WORKS
-% preallocate logical arrays pointing to anomalous events
-adr.isAnomTransIA=false(size(transIA));
-adr.isAnomTransAI=false(size(transAI));
 % find combinations of transitions amounting to full events (that is, the
 % i-a transitions followed by a-i transitions
 transIAIx=true(size(transIA));
@@ -85,6 +87,9 @@ if numel(numEv)>1
   error('internal: transIAIx and transAIIx don''t match')
 end
 
+% preallocate logical arrays pointing to anomalous events
+adr.isAnomTransIA=false(size(transIA));
+adr.isAnomTransAI=false(size(transAI));
 % preallocate array for quantifiers (function values)
 adr.funVal=nan(numEv,numQuantifier);
 
@@ -96,9 +101,11 @@ for k=1:numEv
   end
 end
 
+% default: none is anomalous
+badIx=false(size(adr.funVal,1),1);
 switch detMethod
   case 'kmeans'
-    numCluster=max(min(9,numEv-1),9)
+    numCluster=max(2,min(8,numEv-1));
     [cluIx,cluCentroid]=kmeans(adr.funVal,numCluster);
     % identify cluster with smallest mean: this is the poor one
     [~,badCluIx]=min(cluCentroid);
@@ -107,7 +114,6 @@ switch detMethod
       badIx=cluIx==badCluIx;
     else
       disp('anomalous samples cannot be identified because none of the clusters can be identified as the bad one')
-      badIx=false(size(adr.funVal,1),1);
     end
     
   case 'Gaussian'
@@ -129,16 +135,17 @@ switch detMethod
       badIx=probCluster(:,mainCluIx)<=pThresh & any(adr.funVal<mainCluMn,2);
     elseif isempty(mainCluIx)
       disp('fitting Gaussian Mixture Model failed')
-      badIx=false(size(adr.funVal,1),1);
     else
       disp('anomalous samples cannot be identified because none of the Gaussians can be identified as the main one')
-      badIx=false(size(adr.funVal,1),1);
     end
     
   case 'explicit'
     badIx=false(size(adr.funVal,1),1);
     % note definition of bad=smaller than threshold in ANY dimension!
     badIx=badIx | any(adr.funVal<thresh(:)',2);
+    
+  case 'none'
+    disp('no anomaly detection requested')
     
   otherwise
     error('illegal method')

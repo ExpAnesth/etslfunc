@@ -11,7 +11,7 @@ assert(~any(rem(etsl(:,etslc.tsCol),1)),...
   'time basis of extended time stamp list must be sampling points');
 logicalIx=false(numPts,1);
 % start and stop times of active periods in points
-cumTimes=cumsum(etsl(:,[etslc.tsCol etslc.durCol]),2);
+cumTimes=cumsum(etsl(:,[etslc.tsCol etslc.durCol]),2)-[0 1];
 % indexes to data points belonging to periods, omitting incompletely
 % detected periods at beginning and end
 for k=1:size(cumTimes,1)

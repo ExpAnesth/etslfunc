@@ -312,8 +312,23 @@ if ds.doPlot
     ylabel('av. norm. diff. PETH');
   end
   
+  % there are folks who prefer cumulative histograms, so let's plot them
+  subplot(4,2,7), hold on
+  % first set
+  ph=stairs(pethBin,cumsum(mnPeth1));
+  set(ph,'color',ds.pCol(1,:),'linewidth',1.5);
+  % second set
+  ph=stairs(pethBin,cumsum(mnPeth2));
+  set(ph,'color',ds.pCol(2,:),'linewidth',1.5);
+  nicexy0ax(30);
+  set(gca,'xlim',ds.intv);
+  xlabel('time (ms)')
+  ylabel('cum. frequency (Hz)');
   
-  if ~isempty(ds.printas),
+  
+  if ~isempty(ds.printas)
+    % shave any file extension off ds.exportFn, if any
+    [~,ds.exportFn]=fileparts(ds.exportFn);
     print(ds.printas,'-r400',[ds.exportDir ds.exportFn]);
   end
   
